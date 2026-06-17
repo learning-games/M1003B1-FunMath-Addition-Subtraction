@@ -2,7 +2,7 @@
 <html lang="th"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>เกม:เก่งคณิต คิดสนุก การบวก/การลบ</title>
+<title>เกม : เก่งคณิต คิดสนุก การบวก/การลบ</title>
 <style>
   /* ===== Noto Sans Thai (ฝังในไฟล์ ไม่ต้องพึ่งเน็ต) — thai+latin, น้ำหนัก 400/700/800 ===== */
   @font-face{ font-family:'Noto Sans Thai'; font-style:normal; font-weight:400; font-display:swap;
@@ -915,12 +915,21 @@
     }
     let wrong;
     let tries=0;
-    do{
-      const off=rnd(1,3)*(Math.random()<0.5?-1:1);
-      wrong=answer+off; tries++;
-    }while((wrong<0||wrong===answer)&&tries<20);
-    if(wrong<0) wrong=answer+rnd(1,3);
-    if(wrong===answer) wrong=answer+1;
+    if(state.level==='add'){
+      const hi=Math.max(a,b);
+      do{
+        const off=rnd(1,3)*(Math.random()<0.5?-1:1);
+        wrong=answer+off; tries++;
+      }while((wrong<=hi||wrong===answer)&&tries<20);
+      if(wrong<=hi||wrong===answer) wrong=answer+1;
+    }else{
+      const cap=a;
+      do{
+        const off=rnd(1,3)*(Math.random()<0.5?-1:1);
+        wrong=answer+off; tries++;
+      }while((wrong<0||wrong>cap||wrong===answer)&&tries<20);
+      if(wrong<0||wrong>cap||wrong===answer) wrong=(answer-1>=0?answer-1:answer+1);
+    }
     const correctSide = Math.random()<0.5?'left':'right';
     return { text, answer, wrong, correctSide };
   }
