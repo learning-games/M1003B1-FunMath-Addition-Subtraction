@@ -2,7 +2,7 @@
 <html lang="th"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>เกม : เก่งคณิต คิดสนุก การบวก/การลบ</title>
+<title>เกม:เก่งคณิต คิดสนุก การบวก/การลบ</title>
 <style>
   /* ===== Noto Sans Thai (ฝังในไฟล์ ไม่ต้องพึ่งเน็ต) — thai+latin, น้ำหนัก 400/700/800 ===== */
   @font-face{ font-family:'Noto Sans Thai'; font-style:normal; font-weight:400; font-display:swap;
@@ -577,6 +577,28 @@
     font-size:clamp(96px,22vw,220px); color:#fff; text-shadow:0 8px 24px rgba(0,0,0,.5); line-height:1; }
   @keyframes cdPulse{ 0%{ transform:scale(.4); opacity:0; } 30%{ transform:scale(1.15); opacity:1; } 100%{ transform:scale(1); opacity:1; } }
 
+  /* เลือกความยาก (ยิ้ม/โกรธ) */
+  #diffOverlay{ z-index:108; background:rgba(40,30,70,.55); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+  #diffOverlay .diff-wrap{ display:flex; flex-direction:column; align-items:center; gap:clamp(10px,2.2vh,20px);
+    width:min(96vw,720px); animation:splashPop .45s cubic-bezier(.34,1.56,.64,1) both; }
+  #diffOverlay .diff-title{ font-weight:800; font-size:clamp(22px,4.6vw,40px); color:#fff; text-shadow:0 3px 12px rgba(0,0,0,.4); }
+  #diffOverlay .diff-cards{ display:flex; gap:clamp(14px,3vw,28px); flex-wrap:wrap; justify-content:center; width:100%; }
+  .diff-card{ position:relative; overflow:hidden; cursor:pointer; user-select:none;
+    flex:0 1 clamp(120px,30vw,200px); max-width:200px; min-height:clamp(130px,22vh,200px);
+    background:#fff; border-radius:24px; border:5px solid transparent;
+    padding:clamp(12px,2.2vh,20px) clamp(10px,2vw,18px); text-align:center;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(4px,1vh,10px);
+    box-shadow:0 12px 0 rgba(90,80,140,.25), 0 20px 36px rgba(40,30,90,.28);
+    transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease; }
+  .diff-card .diff-face{ font-size:clamp(52px,13vw,92px); line-height:1; position:relative; z-index:1; }
+  .diff-card.easy{ box-shadow:0 12px 0 var(--green-d), 0 20px 36px rgba(40,120,60,.28); }
+  .diff-card.hard{ box-shadow:0 12px 0 var(--red-d), 0 20px 36px rgba(170,60,60,.28); }
+  .diff-card:active{ transform:translateY(5px); }
+  .diff-card.hot{ transform:translateY(-6px) scale(1.04); border-color:var(--yellow); }
+  /* แถบความคืบหน้าตอนวางมือค้าง (โหมดกล้อง) */
+  .diff-card .diff-fill{ position:absolute; left:0; bottom:0; width:100%; height:0%; z-index:0;
+    background:linear-gradient(180deg, rgba(255,221,122,.55), rgba(245,180,40,.7)); transition:height .08s linear; }
+
   /* ============ ตัวเลือกแบบสุ่มตำแหน่ง + ลอยเข้า/ออก ============ */
   .answers{ display:block !important; }
   .zone{ display:contents !important; }
@@ -798,6 +820,23 @@
   <div class="cd-num" id="countdownNum">3</div>
 </div>
 
+<!-- ========= เลือกความยาก (ยิ้ม / โกรธ) ========= -->
+<div class="fs-overlay" id="diffOverlay">
+  <div class="diff-wrap">
+    <div class="diff-title">เลือกระดับความยาก</div>
+    <div class="diff-cards">
+      <div class="diff-card easy" id="diffEasy" data-diff="easy" role="button" tabindex="0">
+        <div class="diff-fill"></div>
+        <div class="diff-face">😊</div>
+      </div>
+      <div class="diff-card hard" id="diffHard" data-diff="hard" role="button" tabindex="0">
+        <div class="diff-fill"></div>
+        <div class="diff-face">😡</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   "use strict";
@@ -896,7 +935,7 @@
 
   /* ---------------- game state ---------------- */
   const TOTAL = 10;
-  const state = { level:'add', qIndex:0, score:0, correct:0, answered:false, paused:false, time:0, timer:null, current:null, interTimer:null, interActive:false, inputLocked:false, pendingEffect:null, activeEffect:null, interHold:false, attempts:0, specialUsed:false };
+  const state = { level:'add', difficulty:'easy', qIndex:0, score:0, correct:0, answered:false, paused:false, time:0, timer:null, current:null, interTimer:null, interActive:false, inputLocked:false, pendingEffect:null, activeEffect:null, interHold:false, attempts:0, specialUsed:false };
 
   const $ = id=>document.getElementById(id);
   const screens = { home:$('home'), play:$('play'), summary:$('summary') };
@@ -906,11 +945,19 @@
 
   function makeQuestion(){
     let a,b,answer,text;
+    const hard = state.difficulty==='hard';
     if(state.level==='add'){
-      a=rnd(1,9); b=rnd(1, Math.min(9, 20-a));
+      if(hard){ a=rnd(10,99); b=rnd(10,99); }          // ยาก: 2 หลักทั้งคู่
+      else{ a=rnd(1,9); b=rnd(1, Math.min(9, 20-a)); } // ปกติ: 1 หลัก
       answer=a+b; text=a+' + '+b+' = ';
     }else{
-      a=rnd(2,18); b=rnd(1,a);
+      if(hard){
+        // ยาก: 2 หลักทั้งคู่, ผลลบ ≥ 2 (คำตอบเป็น 1–2 หลักได้)
+        do{ a=rnd(10,99); b=rnd(10,99); if(a<b){ const t=a; a=b; b=t; } }while(a-b<2);
+      }else{
+        // ปกติ: เลี่ยงผลลัพธ์ 0 และ 1 → บังคับ a−b ≥ 2
+        a=rnd(3,18); b=rnd(1, a-2);
+      }
       answer=a-b; text=a+' − '+b+' = ';
     }
     let wrong;
@@ -923,12 +970,23 @@
       }while((wrong<=hi||wrong===answer)&&tries<20);
       if(wrong<=hi||wrong===answer) wrong=answer+1;
     }else{
+      // ด่านลบ: ตัวหลอกต้องไม่เท่ากับคำตอบ ตัวตั้ง(a) หรือตัวลบ(b)
+      // และต้องอยู่ในช่วง 0..a (ผลลบที่เป็นไปได้จริง)
       const cap=a;
       do{
         const off=rnd(1,3)*(Math.random()<0.5?-1:1);
         wrong=answer+off; tries++;
-      }while((wrong<0||wrong>cap||wrong===answer)&&tries<20);
-      if(wrong<0||wrong>cap||wrong===answer) wrong=(answer-1>=0?answer-1:answer+1);
+      }while((wrong<0||wrong>cap||wrong===answer||wrong===a||wrong===b)&&tries<40);
+      if(wrong<0||wrong>cap||wrong===answer||wrong===a||wrong===b){
+        // fallback: ไล่หาค่าที่ใช้ได้ซึ่งใกล้คำตอบที่สุด
+        wrong=-1;
+        for(let d=1; d<=cap+1 && wrong===-1; d++){
+          for(const cand of [answer-d, answer+d]){
+            if(cand>=0&&cand<=cap&&cand!==answer&&cand!==a&&cand!==b){ wrong=cand; break; }
+          }
+        }
+        if(wrong===-1) wrong=(answer-1>=0?answer-1:answer+1);
+      }
     }
     const correctSide = Math.random()<0.5?'left':'right';
     return { text, answer, wrong, correctSide };
@@ -1243,6 +1301,7 @@
 
   function goHome(){
     if(typeof window.__stopCamera==='function') window.__stopCamera();  // ปิดกล้อง ไม่ให้ภาพกล้องโชว์ทับหน้าเลือกด่าน
+    { const dov=$('diffOverlay'); if(dov) dov.classList.remove('show'); diffHover=null; }   // กันการ์ดความยากค้าง
     document.body.classList.remove('use-cam-bg');   // กลับหน้าเลือกด่าน: เห็นพื้นหลังเสมอ
     stopTimer(); Audio.stopBGM();
     setMenuBackground();
@@ -1324,6 +1383,29 @@
     },1000);
   }
 
+  /* ---------------- เลือกความยาก (ยิ้ม/โกรธ) ---------------- */
+  function resetDiffUI(){
+    diffHover=null; diffDwellStart=0;
+    document.querySelectorAll('.diff-card').forEach(c=>{ c.classList.remove('hot'); const f=c.querySelector('.diff-fill'); if(f) f.style.height='0%'; });
+  }
+  function showDifficulty(){
+    resetDiffUI();
+    document.body.classList.add('use-cam-bg');   // โชว์ภาพกล้อง เพื่อให้ใช้มือเลือกได้
+    $('diffOverlay').classList.add('show');
+  }
+  function chooseDifficulty(diff){
+    if(!$('diffOverlay').classList.contains('show')) return;   // กันเลือกซ้ำ
+    state.difficulty = (diff==='hard') ? 'hard' : 'easy';
+    resetDiffUI();
+    $('diffOverlay').classList.remove('show');
+    runCountdown(startGame);                      // เลือกเสร็จ -> นับถอยหลัง -> เริ่มเกม
+  }
+  document.querySelectorAll('.diff-card').forEach(card=>{
+    const pick=()=>{ Audio.unlock(); chooseDifficulty(card.dataset.diff); };
+    card.addEventListener('click',pick);
+    card.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } });
+  });
+
   /* ---------------- bindings ---------------- */
   document.querySelectorAll('.lvl-card').forEach(card=>{
     const pick=()=>{
@@ -1341,7 +1423,7 @@
   $('btnEnterGame').addEventListener('click',()=>{ Audio.unlock(); Audio.startBGM(); setMenuBackground(); $('splashOverlay').classList.remove('show'); });
   // guide: ปุ่มกล้อง / เริ่มเกม
   $('btnGuideCamera').addEventListener('click',()=>{ Audio.unlock(); if(typeof window.__toggleCamera==='function') window.__toggleCamera(); setTimeout(syncGuideCam,250); setTimeout(syncGuideCam,700); });
-  $('btnGuideStart').addEventListener('click',()=>{ Audio.unlock(); hideGuide(); if(guideMode==='prestart'){ runCountdown(startGame); } });
+  $('btnGuideStart').addEventListener('click',()=>{ Audio.unlock(); hideGuide(); if(guideMode==='prestart'){ showDifficulty(); } });
 
   function bindAnswer(btn, side){ btn.addEventListener('click',()=>answer(side)); }
   bindAnswer($('ansLeft'),'left');
@@ -1416,6 +1498,7 @@
   /* ============ CAMERA HAND-SELECT (ใช้มือเลือกซ้าย/ขวา) ============ */
   let camOn=false, handPos=null, handPoints=[], headPoint=null;
   let hoverSide=null, dwellStart=0; let armed=true; const DWELL_MS=900;
+  let diffHover=null, diffDwellStart=0; const DIFF_DWELL=900;   // วางมือค้าง ~0.9 วิ เพื่อเลือกความยาก
   let boxArmed=true, headBoxArmed=true, lastBoxTap=0, boxSettleUntil=0, headBumpAt=null; const BOX_COOLDOWN=250;
   let handCursorEl=null, handRingEl=null;
 
@@ -1471,6 +1554,28 @@
   }
   function handSelectLoop(){
     requestAnimationFrame(handSelectLoop);
+
+    // ===== เลือกความยากด้วยมือ (โหมดกล้อง): วางมือค้างบนการ์ด ~0.9 วิ =====
+    const diffOv=$('diffOverlay');
+    if(diffOv && diffOv.classList.contains('show')){
+      let cur=null;
+      if(camOn && handPoints.length){
+        if(hitCircle($('diffEasy'))) cur='easy';
+        else if(hitCircle($('diffHard'))) cur='hard';
+      }
+      if(cur!==diffHover){
+        if(diffHover){ const ph=$(diffHover==='easy'?'diffEasy':'diffHard'); if(ph){ ph.classList.remove('hot'); const f=ph.querySelector('.diff-fill'); if(f) f.style.height='0%'; } }
+        diffHover=cur; diffDwellStart=cur?performance.now():0;
+        if(cur){ const nh=$(cur==='easy'?'diffEasy':'diffHard'); if(nh) nh.classList.add('hot'); }
+      }
+      if(cur){
+        const prog=Math.min(1,(performance.now()-diffDwellStart)/DIFF_DWELL);
+        const card=$(cur==='easy'?'diffEasy':'diffHard'); const f=card&&card.querySelector('.diff-fill'); if(f) f.style.height=Math.round(prog*100)+'%';
+        if(prog>=1){ const d=cur; diffHover=null; chooseDifficulty(d); }
+      }
+      return;   // ระหว่างเลือกความยาก ไม่ต้องประมวลผลการตอบ/กล่องปริศนา
+    } else if(diffHover){ diffHover=null; }
+
     const canAnswer = camOn && screens.play.classList.contains('active') && !state.paused && !state.answered && !state.inputLocked;
     const pick = canAnswer ? pickAnswerSide() : null;
     // re-arm คำตอบ: ต้องเอามือ/หัวออกจากวง ก่อนถึงจะเลือกใหม่ได้ ; arm เฉพาะช่วงตอบได้จริง (กันวงลอยมาคลุมจุดแล้วลั่น)
